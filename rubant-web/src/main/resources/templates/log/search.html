@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>日志查看</title>
+    <script th:src="@{/libs/jquery-3.6.1.min.js}"></script>
+    <style>
+        .ip {
+            display: inline-block;
+            margin: 5px;
+            border: 1px solid cornflowerblue;
+            width: 100px;
+            text-align: center;
+            cursor: pointer;
+        }
+        .file {
+            border: 1px solid cornflowerblue;
+            width: 80%;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+        .console {
+            background: black;
+            color: white;
+        }
+    </style>
+</head>
+<body style="margin: 20px">
+应用: <select id="app">
+    <option value="">请选择</option>
+    <option th:each="dir:${dirs}" th:value="${dir.fileName}" th:text="${dir.fileName}"></option>
+</select>
+<div id="ips" style="width: 100%"></div>
+<div id="files" style="width: 100%"></div>
+<div id="console" class="console"></div>
+</body>
+<script>
+    var subPath = "";
+    $(function () {
+        $("#app").change(function () {
+            $.ajax({
+                url: "/api/dirs",
+                type: "post",
+                data: {path: $("#app").val()},
+                success: function (data) {
+                    $("#ips").children().remove();
+                    $("#files").children().remove();
+                    for (index in data) {
+                        $("#ips").append("<div onclick='listFiles(this)' class='ip'>" + data[index].fileName + "</div>");
+                    }
+                }
+            })
+            }
+        );
+    });
+
+    function listFiles(item) {
+        subPath = $(item).text();
+        $.ajax({
+            url: "/api/files",
+            type: "post",
+            data: {
+                path: $("#app").val(),
+                subPath: $(item).text()
+            },
+            success: function (data) {
+                $("#files").children().remove();
+                for (index in data) {
+                    $("#files").append("<div onclick='tailf(this)' class='file'>" + data[index].fileName + "</div>");
+                }
+            }
+        })
+    }
+
+    function tailf(item) {
+        ws.send(JSON.stringify({"type": "tailf", "filename": $(item).text(), "path":$("#app").val(), "subPath":subPath}));
+    }
+
+    let ws = new WebSocket("ws://localhost:8080/log/ws")
+    ws.onopen = function () {
+    }
+    ws.addEventListener('open', function () {
+    });
+
+    ws.onmessage = function (event) {
+        $("#console").append(event.data);
+    }
+
+    // 心跳
+    setInterval(function () {
+        ws.send(JSON.stringify({"type": "PING_PONG"}));
+    }, 5000);
+
+</script>
+</html>
